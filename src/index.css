@@ -1,11 +1,313 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Variables claro ── */
+:root {
+  --bg-primary:    #ffffff;
+  --bg-secondary:  #f9f9f7;
+  --bg-tertiary:   #f1efe8;
+  --bg-hover:      #f5f4f0;
+  --border:        #e5e5e0;
+  --border-hover:  #c8c8c2;
+  --text-primary:  #1a1a18;
+  --text-secondary:#555550;
+  --text-muted:    #999994;
+  --text-hint:     #bbbbbb;
+  --sidebar-bg:    #ffffff;
+  --sidebar-w:     220px;
+  --accent:        #1a56a0;
+  --accent-light:  #e6f1fb;
+
+  --oee-wc:        #378add;
+  --oee-buena:     #639922;
+  --oee-aceptable: #daa520;
+  --oee-regular:   #ef9f27;
+  --oee-mala:      #e24b4a;
+
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-hover:  0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-modal:  0 20px 60px rgba(0,0,0,0.15);
+
+  --radius-sm:     6px;
+  --radius-md:     10px;
+  --radius-lg:     14px;
+
+  --transition:    0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+/* ── Variables oscuro ── */
+.dark {
+  --bg-primary:    #1e1e1c;
+  --bg-secondary:  #141412;
+  --bg-tertiary:   #2a2a27;
+  --bg-hover:      #252522;
+  --border:        #333330;
+  --border-hover:  #4a4a46;
+  --text-primary:  #f0efe8;
+  --text-secondary:#b0b0a8;
+  --text-muted:    #707068;
+  --text-hint:     #505048;
+  --sidebar-bg:    #1a1a18;
+  --accent:        #4a8fd4;
+  --accent-light:  #1a2a3a;
+
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-hover:  0 4px 16px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-modal:  0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* ── Auto dark mode desde sistema ── */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg-primary:    #1e1e1c;
+    --bg-secondary:  #141412;
+    --bg-tertiary:   #2a2a27;
+    --bg-hover:      #252522;
+    --border:        #333330;
+    --border-hover:  #4a4a46;
+    --text-primary:  #f0efe8;
+    --text-secondary:#b0b0a8;
+    --text-muted:    #707068;
+    --text-hint:     #505048;
+    --sidebar-bg:    #1a1a18;
+    --accent:        #4a8fd4;
+    --accent-light:  #1a2a3a;
+    --shadow-card:   0 1px 3px rgba(0,0,0,0.3);
+    --shadow-hover:  0 4px 16px rgba(0,0,0,0.4);
+    --shadow-modal:  0 20px 60px rgba(0,0,0,0.5);
+  }
+}
 
 body {
-  background: white;
-  color: black;
-  font-family: system-ui, sans-serif;
-  margin: 0;
-  padding: 2rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background var(--transition), color var(--transition);
 }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* ── Animaciones ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.4); }
+}
+
+@keyframes progress-fill {
+  from { width: 0%; }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Clases de animación ── */
+.animate-fade-in-up {
+  animation: fadeInUp var(--transition-slow) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition) both;
+}
+
+.animate-slide-right {
+  animation: slideInRight var(--transition-slow) both;
+}
+
+/* Stagger para cards */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.30s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.40s; }
+
+/* ── Card base ── */
+.card {
+  background: var(--bg-primary);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+/* ── Barra de progreso animada ── */
+.progress-bar {
+  height: 5px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  animation: progress-fill 1s var(--transition) both;
+}
+
+/* ── Skeleton loader ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Nav item hover ── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 2px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 400;
+  transition: background var(--transition), color var(--transition), transform var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--bg-hover);
+  opacity: 0;
+  transition: opacity var(--transition);
+  border-radius: var(--radius-md);
+}
+
+.nav-item:hover::before { opacity: 1; }
+.nav-item:hover {
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.nav-item.active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+
+/* ── Toggle modo oscuro ── */
+.theme-toggle {
+  width: 40px; height: 22px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--transition), border-color var(--transition);
+  flex-shrink: 0;
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform var(--transition), background var(--transition);
+}
+
+.dark .theme-toggle-thumb {
+  transform: translateX(18px);
+  background: var(--accent);
+}
+
+/* ── Pulse dot ── */
+.pulse-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Página transition wrapper ── */
+.page-enter {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Badge ── */
+.badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Input base ── */
+input, select {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(26, 86, 160, 0.1);
+}
+
+/* ── Button base ── */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+button:active { transform: scale(0.97); }
