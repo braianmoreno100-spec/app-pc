@@ -33,6 +33,7 @@ function Badge({ text, color }: { text: string; color: string }) {
     green:  { bg: 'rgba(99,153,34,0.15)',   fg: '#639922' },
     blue:   { bg: 'rgba(55,138,221,0.15)',  fg: '#378add' },
     orange: { bg: 'rgba(239,159,39,0.15)',  fg: '#ba7517' },
+    teal:   { bg: 'rgba(29,158,117,0.15)',  fg: '#1D9E75' },
     gray:   { bg: 'var(--bg-tertiary)',     fg: 'var(--text-muted)' },
     red:    { bg: 'rgba(226,75,74,0.15)',   fg: '#e24b4a' },
   }
@@ -101,6 +102,17 @@ const btnPrimary = {
 const tableHeader = {
   padding: '10px 16px', borderBottom: '0.5px solid var(--border)',
   fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' as const,
+}
+
+// ── Color badge por tipo de máquina ──────────────────────────────────────────
+function badgeColorTipo(tipo: string): string {
+  switch (tipo) {
+    case 'inyeccion':         return 'blue'
+    case 'soplado':           return 'green'
+    case 'linea':             return 'orange'
+    case 'acondicionamiento': return 'teal'
+    default:                  return 'gray'
+  }
 }
 
 function SeccionEmpleados() {
@@ -352,13 +364,14 @@ function SeccionProductos() {
 }
 
 function SeccionCausas() {
-  const [lista,     setLista]     = useState<CausaParada[]>([])
-  const [busqueda,  setBusqueda]  = useState('')
-  const [tipoFiltro,setTipoFiltro]= useState<'todos'|'inyeccion'|'soplado'|'linea'>('todos')
-  const [loading,   setLoading]   = useState(true)
-  const [modal,     setModal]     = useState(false)
-  const [guardando, setGuardando] = useState(false)
-  const [form,      setForm]      = useState({codigo:'',descripcion:'',tipo_maquina:'inyeccion',programada:false})
+  // ── CAMBIO 1: agregado 'acondicionamiento' al tipo del estado ────────────────
+  const [lista,      setLista]      = useState<CausaParada[]>([])
+  const [busqueda,   setBusqueda]   = useState('')
+  const [tipoFiltro, setTipoFiltro] = useState<'todos'|'inyeccion'|'soplado'|'linea'|'acondicionamiento'>('todos')
+  const [loading,    setLoading]    = useState(true)
+  const [modal,      setModal]      = useState(false)
+  const [guardando,  setGuardando]  = useState(false)
+  const [form,       setForm]       = useState({codigo:'',descripcion:'',tipo_maquina:'inyeccion',programada:false})
 
   useEffect(() => {
     fetch(`${API}/catalogos/causas-parada`).then(r=>r.json()).then(d=>{setLista(d);setLoading(false)}).catch(()=>setLoading(false))
@@ -392,8 +405,8 @@ function SeccionCausas() {
     fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
     border: '0.5px solid' as const,
     borderColor: tipoFiltro===t ? 'var(--text-primary)' : 'var(--border)',
-    background: tipoFiltro===t ? 'var(--text-primary)' : 'var(--bg-primary)',
-    color: tipoFiltro===t ? 'var(--bg-primary)' : 'var(--text-muted)',
+    background:  tipoFiltro===t ? 'var(--text-primary)' : 'var(--bg-primary)',
+    color:       tipoFiltro===t ? 'var(--bg-primary)'   : 'var(--text-muted)',
     textTransform: 'capitalize' as const,
   })
 
@@ -401,28 +414,32 @@ function SeccionCausas() {
     <div>
       <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
         <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." style={{...searchInput,flex:1,minWidth:150}} />
-        <div style={{display:'flex',gap:6}}>
-          {(['todos','inyeccion','soplado','linea'] as const).map(t=>(
-            <button key={t} onClick={()=>setTipoFiltro(t)} style={filterBtn(t)}>{t}</button>
+        {/* CAMBIO 2: agregado 'acondicionamiento' al array de filtros */}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {(['todos','inyeccion','soplado','linea','acondicionamiento'] as const).map(t=>(
+            <button key={t} onClick={()=>setTipoFiltro(t)} style={filterBtn(t)}>
+              {t === 'acondicionamiento' ? 'acond.' : t}
+            </button>
           ))}
         </div>
         <button onClick={()=>setModal(true)} style={btnPrimary}>+ Nueva causa</button>
       </div>
       <div className="card" style={{overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'55px 1fr 100px 110px 70px 90px',...tableHeader}}>
+        <div style={{display:'grid',gridTemplateColumns:'55px 1fr 130px 110px 70px 90px',...tableHeader}}>
           <span>Cod.</span><span>Descripción</span><span>Tipo</span><span>Parada</span><span>Activa</span><span></span>
         </div>
         {loading&&<div style={{padding:20,textAlign:'center',fontSize:12,color:'var(--text-muted)'}}>Cargando...</div>}
         {filtrados.map((c,i)=>(
           <div key={c.id} className="animate-fade-in-up" style={{
-            display:'grid',gridTemplateColumns:'55px 1fr 100px 110px 70px 90px',
+            display:'grid',gridTemplateColumns:'55px 1fr 130px 110px 70px 90px',
             padding:'11px 16px',alignItems:'center',
             borderBottom:i<filtrados.length-1?'0.5px solid var(--border)':'none',
             animationDelay:`${i*0.02}s`,
           }}>
             <span style={{fontSize:12,fontWeight:600,color:'var(--text-muted)',fontFamily:'monospace'}}>{c.codigo}</span>
             <span style={{fontSize:12,color:'var(--text-primary)'}}>{c.descripcion}</span>
-            <Badge text={c.tipo_maquina} color={c.tipo_maquina==='inyeccion'?'blue':c.tipo_maquina==='soplado'?'green':'orange'} />
+            {/* CAMBIO 3: función badgeColorTipo para el color correcto por tipo */}
+            <Badge text={c.tipo_maquina} color={badgeColorTipo(c.tipo_maquina)} />
             <Badge text={c.programada?'Programada':'No programada'} color={c.programada?'gray':'red'} />
             <Toggle activo={c.activa} onChange={()=>toggleActivo(c)} />
             <BtnEliminar onClick={()=>eliminar(c)} />
@@ -440,11 +457,13 @@ function SeccionCausas() {
               <Inp label="Código" type="number" value={form.codigo} onChange={v=>setForm(f=>({...f,codigo:v}))} placeholder="Ej: 41" />
               <div style={{display:'flex',flexDirection:'column',gap:4}}>
                 <label style={{fontSize:10,color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase'}}>Tipo máquina</label>
+                {/* CAMBIO 4: agregada opción Acondicionamiento en el select */}
                 <select value={form.tipo_maquina} onChange={e=>setForm(f=>({...f,tipo_maquina:e.target.value}))}
                   style={{padding:'7px 10px',fontSize:12,border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',color:'var(--text-primary)',background:'var(--bg-primary)'}}>
                   <option value="inyeccion">Inyección</option>
                   <option value="soplado">Soplado</option>
                   <option value="linea">Línea</option>
+                  <option value="acondicionamiento">Acondicionamiento</option>
                 </select>
               </div>
             </div>
@@ -531,7 +550,7 @@ function SeccionDesperdicios() {
         <Modal title="Nuevo tipo de desperdicio" onClose={()=>setModal(false)}>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
             <Inp label="Código" type="number" value={form.codigo} onChange={v=>setForm(f=>({...f,codigo:v}))} placeholder="Ej: 25" />
-            <Inp label="Descripción" value={form.descripcion} onChange={v=>setForm(f=>({...f,descripcion:v}))} placeholder="Ej: Rebaba de inyección" />
+            <Inp label="Descripción" value={form.descripcion} onChange={v=>setForm(f=>({...f,descripcion:v}))} placeholder="Ej: Empaque defectuoso" />
             <button onClick={crear} disabled={guardando} style={{...btnPrimary,marginTop:8,padding:'9px 0',width:'100%'}}>
               {guardando?'Guardando...':'Crear tipo'}
             </button>
@@ -542,12 +561,13 @@ function SeccionDesperdicios() {
   )
 }
 
+// CAMBIO 5: contadores actualizados (176 causas, 41 tipos)
 const TABS: {id:Tab;label:string;desc:string}[] = [
-  {id:'empleados',    label:'Empleados',       desc:'Operarios'},
-  {id:'lideres',      label:'Líderes',         desc:'Supervisores'},
-  {id:'productos',    label:'Productos',       desc:'122 referencias'},
-  {id:'causas',       label:'Causas de parada',desc:'126 causas'},
-  {id:'desperdicios', label:'Desperdicios',    desc:'24 tipos'},
+  {id:'empleados',    label:'Empleados',        desc:'Operarios'},
+  {id:'lideres',      label:'Líderes',          desc:'Supervisores'},
+  {id:'productos',    label:'Productos',        desc:'122 referencias'},
+  {id:'causas',       label:'Causas de parada', desc:'176 causas'},
+  {id:'desperdicios', label:'Desperdicios',     desc:'41 tipos'},
 ]
 
 export default function CatalogosPage() {
