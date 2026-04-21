@@ -11,7 +11,7 @@ interface Orden {
   numero_maquina: number
   cantidad_producir: number
   nombre_lider: string
-  fecha_creacion: string
+  fecha_creacion: string | null
   activa: boolean
 }
 
@@ -54,6 +54,17 @@ function getOeeLabel(oee: number) {
   return 'World Class'
 }
 
+// ── Fix: fecha segura ante null ───────────────────────────────────────────────
+function fechaSegura(fecha: string | null): string {
+  if (!fecha) return '—'
+  try { return new Date(fecha).toLocaleDateString('es-CO') }
+  catch { return '—' }
+}
+function fechaSlice(fecha: string | null): string {
+  if (!fecha) return ''
+  return fecha.slice(0, 10)
+}
+
 function BadgeEstado({ activa }: { activa: boolean }) {
   return (
     <span className="badge" style={{
@@ -67,9 +78,10 @@ function BadgeEstado({ activa }: { activa: boolean }) {
 
 function BadgeTipo({ tipo }: { tipo: string }) {
   const map: Record<string, { bg: string; color: string; label: string }> = {
-    inyeccion: { bg: 'rgba(55,138,221,0.15)', color: '#378add', label: 'Inyección' },
-    soplado:   { bg: 'rgba(99,153,34,0.15)',  color: '#639922', label: 'Soplado'   },
-    linea:     { bg: 'rgba(239,159,39,0.15)', color: '#ba7517', label: 'Línea'     },
+    inyeccion:         { bg: 'rgba(55,138,221,0.15)',  color: '#378add', label: 'Inyección'        },
+    soplado:           { bg: 'rgba(99,153,34,0.15)',   color: '#639922', label: 'Soplado'           },
+    linea:             { bg: 'rgba(239,159,39,0.15)',  color: '#ba7517', label: 'Línea'             },
+    acondicionamiento: { bg: 'rgba(29,158,117,0.15)',  color: '#1D9E75', label: 'Acondicionamiento' },
   }
   const s = map[tipo] ?? { bg: 'var(--bg-tertiary)', color: 'var(--text-muted)', label: tipo }
   return (
@@ -78,9 +90,9 @@ function BadgeTipo({ tipo }: { tipo: string }) {
 }
 
 function DetallePanel({ orden, onClose }: { orden: Orden; onClose: () => void }) {
-  const [turnos,   setTurnos]   = useState<Turno[]>([])
-  const [resumenes,setResumenes]= useState<Record<number, ResumenTurno>>({})
-  const [loading,  setLoading]  = useState(true)
+  const [turnos,    setTurnos]    = useState<Turno[]>([])
+  const [resumenes, setResumenes] = useState<Record<number, ResumenTurno>>({})
+  const [loading,   setLoading]   = useState(true)
 
   useEffect(() => {
     fetch(`${API}/produccion/turno/orden/${orden.id}`)
@@ -135,7 +147,7 @@ function DetallePanel({ orden, onClose }: { orden: Orden; onClose: () => void })
             { label: 'Máquina',  val: `#${orden.numero_maquina}` },
             { label: 'Cantidad', val: orden.cantidad_producir.toLocaleString() },
             { label: 'Líder',    val: orden.nombre_lider },
-            { label: 'Fecha',    val: new Date(orden.fecha_creacion).toLocaleDateString('es-CO') },
+            { label: 'Fecha',    val: fechaSegura(orden.fecha_creacion) },
             { label: 'Estado',   val: orden.activa ? 'Activa' : 'Cerrada' },
           ].map(k => (
             <div key={k.label}>
@@ -239,28 +251,29 @@ function DetallePanel({ orden, onClose }: { orden: Orden; onClose: () => void })
 }
 
 export default function OrdenesPage() {
-  const [ordenes,          setOrdenes]          = useState<Orden[]>([])
-  const [loading,          setLoading]          = useState(true)
-  const [filtro,           setFiltro]           = useState<'todas'|'activas'|'cerradas'>('todas')
-  const [busqueda,         setBusqueda]         = useState('')
-  const [fechaInicio,      setFechaInicio]      = useState('')
-  const [fechaFin,         setFechaFin]         = useState('')
-  const [ordenSeleccionada,setOrdenSeleccionada]= useState<Orden | null>(null)
+  const [ordenes,           setOrdenes]           = useState<Orden[]>([])
+  const [loading,           setLoading]           = useState(true)
+  const [filtro,            setFiltro]            = useState<'todas'|'activas'|'cerradas'>('todas')
+  const [busqueda,          setBusqueda]          = useState('')
+  const [fechaInicio,       setFechaInicio]       = useState('')
+  const [fechaFin,          setFechaFin]          = useState('')
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null)
 
   useEffect(() => {
     fetch(`${API}/ordenes/`)
       .then(r => r.json())
-      .then(data => { setOrdenes(data); setLoading(false) })
+      .then(data => { setOrdenes(Array.isArray(data) ? data : []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 
   const ordenesFiltradas = ordenes.filter(o => {
-    const matchFiltro  = filtro === 'todas' || (filtro === 'activas' ? o.activa : !o.activa)
-    const matchSearch  = o.numero_orden.toLowerCase().includes(busqueda.toLowerCase()) ||
-                         o.descripcion_producto.toLowerCase().includes(busqueda.toLowerCase())
-    const fecha        = o.fecha_creacion.slice(0, 10)
-    const matchDesde   = !fechaInicio || fecha >= fechaInicio
-    const matchHasta   = !fechaFin    || fecha <= fechaFin
+    const matchFiltro = filtro === 'todas' || (filtro === 'activas' ? o.activa : !o.activa)
+    const matchSearch = (o.numero_orden ?? '').toLowerCase().includes(busqueda.toLowerCase()) ||
+                        (o.descripcion_producto ?? '').toLowerCase().includes(busqueda.toLowerCase())
+    // ── Fix: fecha_creacion puede ser null ───────────────────────────────────
+    const fecha     = fechaSlice(o.fecha_creacion)
+    const matchDesde = !fechaInicio || fecha >= fechaInicio
+    const matchHasta = !fechaFin    || fecha <= fechaFin
     return matchFiltro && matchSearch && matchDesde && matchHasta
   })
 
@@ -286,9 +299,9 @@ export default function OrdenesPage() {
               fontSize: 11, padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
               border: '0.5px solid',
               borderColor: filtro === f ? 'var(--text-primary)' : 'var(--border)',
-              background: filtro === f ? 'var(--text-primary)' : 'var(--bg-primary)',
-              color: filtro === f ? 'var(--bg-primary)' : 'var(--text-muted)',
-              fontWeight: filtro === f ? 600 : 400,
+              background:  filtro === f ? 'var(--text-primary)' : 'var(--bg-primary)',
+              color:       filtro === f ? 'var(--bg-primary)'   : 'var(--text-muted)',
+              fontWeight:  filtro === f ? 600 : 400,
               textTransform: 'capitalize',
             }}>{f}</button>
           ))}
@@ -323,7 +336,7 @@ export default function OrdenesPage() {
       <div className="card" style={{ overflow: 'hidden' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '120px 1fr 110px 70px 100px 80px 80px',
+          gridTemplateColumns: '120px 1fr 140px 70px 100px 80px 80px',
           padding: '10px 16px', borderBottom: '0.5px solid var(--border)',
           fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase',
         }}>
@@ -345,7 +358,7 @@ export default function OrdenesPage() {
             className="animate-fade-in-up"
             style={{
               display: 'grid',
-              gridTemplateColumns: '120px 1fr 110px 70px 100px 80px 80px',
+              gridTemplateColumns: '120px 1fr 140px 70px 100px 80px 80px',
               padding: '12px 16px',
               borderBottom: i < ordenesFiltradas.length - 1 ? '0.5px solid var(--border)' : 'none',
               alignItems: 'center', cursor: 'pointer',
@@ -368,7 +381,7 @@ export default function OrdenesPage() {
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{o.cantidad_producir.toLocaleString()}</span>
             <BadgeEstado activa={o.activa} />
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {new Date(o.fecha_creacion).toLocaleDateString('es-CO')}
+              {fechaSegura(o.fecha_creacion)}
             </span>
           </div>
         ))}
