@@ -1,14 +1,17 @@
 // src/app/layout.tsx
 import { NavLink, Outlet } from 'react-router-dom'
-import { Home, BarChart2, ClipboardList, Settings, FileDown, Sun, Moon } from 'lucide-react'
+import { Home, BarChart2, ClipboardList, Settings, FileDown, Zap, Sun, Moon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Wrench } from 'lucide-react'
 
 const navItems = [
   { to: '/',          label: 'Inicio',    icon: Home          },
   { to: '/oee',       label: 'OEE',       icon: BarChart2     },
   { to: '/ordenes',   label: 'Órdenes',   icon: ClipboardList },
+  { to: '/consumo',   label: 'Consumo',   icon: Zap           },
   { to: '/catalogos', label: 'Catálogos', icon: Settings      },
   { to: '/reportes',  label: 'Reportes',  icon: FileDown      },
+  { to: '/mantenimiento', label: 'Mantenimiento', icon: Wrench },
 ]
 
 function useTheme() {
@@ -89,7 +92,6 @@ export default function Layout() {
           borderTop: '0.5px solid var(--border)',
           marginTop: 8,
         }}>
-          {/* Toggle modo oscuro */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {dark ? <Moon size={12} color='var(--text-muted)' /> : <Sun size={12} color='var(--text-muted)' />}

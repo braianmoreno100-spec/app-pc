@@ -6,7 +6,7 @@ type Tab = 'empleados' | 'lideres' | 'productos' | 'causas' | 'desperdicios'
 
 interface Empleado        { id: number; cedula: string; nombre: string; activo: boolean }
 interface Lider           { id: number; cedula: string; nombre: string; activo: boolean }
-interface Producto        { id: number; codigo: string; descripcion: string; ciclos: number; cavidades: number; material: string; activo: boolean }
+interface Producto        { id: number; codigo: string; descripcion: string; ciclos: number; cavidades: number; material: string; activo: boolean; peso_pieza: number | null }
 interface CausaParada     { id: number; codigo: number; descripcion: string; programada: boolean; tipo_maquina: string; activa: boolean }
 interface TiposDesperdicio{ id: number; codigo: number; descripcion: string; activa: boolean }
 
@@ -67,14 +67,18 @@ function BtnEliminar({ onClick }: { onClick: () => void }) {
   )
 }
 
+// ── CAMBIO 1: Modal anclado a la izquierda ────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200 }} />
       <div className="card animate-fade-in" style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        position: 'fixed',
+        top: '50%',
+        left: 280,
+        transform: 'translateY(-50%)',
         borderRadius: 'var(--radius-lg)', padding: 24, zIndex: 201, width: 420,
-        maxWidth: '90vw', boxShadow: 'var(--shadow-modal)',
+        maxWidth: 'calc(100vw - 300px)', boxShadow: 'var(--shadow-modal)',
         background: 'var(--bg-primary)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -104,7 +108,6 @@ const tableHeader = {
   fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' as const,
 }
 
-// ── Color badge por tipo de máquina ──────────────────────────────────────────
 function badgeColorTipo(tipo: string): string {
   switch (tipo) {
     case 'inyeccion':         return 'blue'
@@ -115,13 +118,54 @@ function badgeColorTipo(tipo: string): string {
   }
 }
 
+function ModalEditarProducto({ prod, onClose, onSave }: {
+  prod: Producto; onClose: () => void; onSave: (p: Producto) => void
+}) {
+  const [peso, setPeso] = useState(prod.peso_pieza != null ? String(prod.peso_pieza) : '')
+  const [guardando, setGuardando] = useState(false)
+
+  async function guardar() {
+    setGuardando(true)
+    const body: Record<string, unknown> = {}
+    if (peso !== '') body.peso_pieza = Number(peso)
+    else body.peso_pieza = null
+    await fetch(`${API}/catalogos/productos/${prod.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    onSave({ ...prod, peso_pieza: peso !== '' ? Number(peso) : null })
+    setGuardando(false); onClose()
+  }
+
+  return (
+    <Modal title={`Editar — ${prod.codigo}`} onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
+          {prod.descripcion}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+          <span>Ciclo: <b style={{ color: 'var(--text-primary)' }}>{prod.ciclos}s</b></span>
+          <span>Cavidades: <b style={{ color: 'var(--text-primary)' }}>{prod.cavidades}</b></span>
+        </div>
+        <Inp label="Peso pieza (gramos)" type="number" value={peso} onChange={setPeso} placeholder="Ej: 45.5" />
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: -8 }}>
+          Usado para calcular kg procesados en la vista de Consumo. Dejar vacío si no aplica.
+        </div>
+        <button onClick={guardar} disabled={guardando} style={{ ...btnPrimary, marginTop: 8, padding: '9px 0', width: '100%' }}>
+          {guardando ? 'Guardando...' : 'Guardar peso'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 function SeccionEmpleados() {
-  const [lista,    setLista]    = useState<Empleado[]>([])
-  const [busqueda, setBusqueda] = useState('')
-  const [loading,  setLoading]  = useState(true)
-  const [modal,    setModal]    = useState(false)
-  const [form,     setForm]     = useState({ cedula: '', nombre: '' })
-  const [guardando,setGuardando]= useState(false)
+  const [lista,     setLista]     = useState<Empleado[]>([])
+  const [busqueda,  setBusqueda]  = useState('')
+  const [loading,   setLoading]   = useState(true)
+  const [modal,     setModal]     = useState(false)
+  const [form,      setForm]      = useState({ cedula: '', nombre: '' })
+  const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     fetch(`${API}/auth/empleados`).then(r=>r.json()).then(d=>{setLista(d);setLoading(false)}).catch(()=>setLoading(false))
@@ -145,10 +189,9 @@ function SeccionEmpleados() {
   async function crear() {
     if (!form.cedula||!form.nombre) return
     setGuardando(true)
-    const r   = await fetch(`${API}/auth/empleados`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,activo:true})})
+    const r = await fetch(`${API}/auth/empleados`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,activo:true})})
     const nuevo = await r.json()
-    setLista(prev=>[...prev,nuevo])
-    setForm({cedula:'',nombre:''});setModal(false);setGuardando(false)
+    setLista(prev=>[...prev,nuevo]); setForm({cedula:'',nombre:''}); setModal(false); setGuardando(false)
   }
 
   return (
@@ -196,12 +239,12 @@ function SeccionEmpleados() {
 }
 
 function SeccionLideres() {
-  const [lista,    setLista]    = useState<Lider[]>([])
-  const [busqueda, setBusqueda] = useState('')
-  const [loading,  setLoading]  = useState(true)
-  const [modal,    setModal]    = useState(false)
-  const [form,     setForm]     = useState({ cedula: '', nombre: '' })
-  const [guardando,setGuardando]= useState(false)
+  const [lista,     setLista]     = useState<Lider[]>([])
+  const [busqueda,  setBusqueda]  = useState('')
+  const [loading,   setLoading]   = useState(true)
+  const [modal,     setModal]     = useState(false)
+  const [form,      setForm]      = useState({ cedula: '', nombre: '' })
+  const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     fetch(`${API}/auth/lideres`).then(r=>r.json()).then(d=>{setLista(d);setLoading(false)}).catch(()=>setLoading(false))
@@ -227,7 +270,7 @@ function SeccionLideres() {
     setGuardando(true)
     const r = await fetch(`${API}/auth/lideres`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,activo:true})})
     const nuevo = await r.json()
-    setLista(prev=>[...prev,nuevo]);setForm({cedula:'',nombre:''});setModal(false);setGuardando(false)
+    setLista(prev=>[...prev,nuevo]); setForm({cedula:'',nombre:''}); setModal(false); setGuardando(false)
   }
 
   return (
@@ -275,12 +318,13 @@ function SeccionLideres() {
 }
 
 function SeccionProductos() {
-  const [lista,    setLista]    = useState<Producto[]>([])
-  const [busqueda, setBusqueda] = useState('')
-  const [loading,  setLoading]  = useState(true)
-  const [modal,    setModal]    = useState(false)
-  const [guardando,setGuardando]= useState(false)
-  const [form,     setForm]     = useState({codigo:'',descripcion:'',ciclos:'',cavidades:'',material:''})
+  const [lista,       setLista]       = useState<Producto[]>([])
+  const [busqueda,    setBusqueda]    = useState('')
+  const [loading,     setLoading]     = useState(true)
+  const [modal,       setModal]       = useState(false)
+  const [modalEditar, setModalEditar] = useState<Producto | null>(null)
+  const [guardando,   setGuardando]   = useState(false)
+  const [form,        setForm]        = useState({ codigo:'', descripcion:'', ciclos:'', cavidades:'', material:'' })
 
   useEffect(() => {
     fetch(`${API}/catalogos/productos`).then(r=>r.json()).then(d=>{setLista(d);setLoading(false)}).catch(()=>setLoading(false))
@@ -289,11 +333,11 @@ function SeccionProductos() {
   const filtrados = lista.filter(p =>
     p.descripcion.toLowerCase().includes(busqueda.toLowerCase()) ||
     p.codigo.toLowerCase().includes(busqueda.toLowerCase()) ||
-    p.material.toLowerCase().includes(busqueda.toLowerCase())
+    (p.material || '').toLowerCase().includes(busqueda.toLowerCase())
   )
 
   async function toggleActivo(prod: Producto) {
-    await fetch(`${API}/catalogos/productos/${prod.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...prod,activo:!prod.activo})})
+    await fetch(`${API}/catalogos/productos/${prod.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({activo:!prod.activo})})
     setLista(prev=>prev.map(p=>p.id===prod.id?{...p,activo:!p.activo}:p))
   }
 
@@ -308,8 +352,11 @@ function SeccionProductos() {
     setGuardando(true)
     const r = await fetch(`${API}/catalogos/productos`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,ciclos:Number(form.ciclos),cavidades:Number(form.cavidades),activo:true})})
     const nuevo = await r.json()
-    setLista(prev=>[...prev,nuevo]);setForm({codigo:'',descripcion:'',ciclos:'',cavidades:'',material:''});setModal(false);setGuardando(false)
+    setLista(prev=>[...prev,nuevo]); setForm({codigo:'',descripcion:'',ciclos:'',cavidades:'',material:''}); setModal(false); setGuardando(false)
   }
+
+  const conPeso = lista.filter(p => p.peso_pieza != null).length
+  const sinPeso = lista.filter(p => p.peso_pieza == null).length
 
   return (
     <div>
@@ -317,14 +364,25 @@ function SeccionProductos() {
         <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar por código, descripción o material..." style={searchInput} />
         <button onClick={()=>setModal(true)} style={btnPrimary}>+ Nuevo producto</button>
       </div>
+      <div style={{
+        display:'flex', gap:8, marginBottom:10, padding:'8px 12px',
+        background:'var(--bg-primary)', borderRadius:'var(--radius-sm)',
+        border:'0.5px solid var(--border)', fontSize:11, color:'var(--text-muted)', alignItems:'center',
+      }}>
+        <span>⚖️ Peso pieza configurado:</span>
+        <span style={{color:'#639922',fontWeight:600}}>{conPeso} productos</span>
+        <span>·</span>
+        <span style={{color:'var(--text-hint)'}}>Sin configurar: {sinPeso}</span>
+        <span style={{marginLeft:'auto',color:'var(--text-hint)'}}>Click en "Peso" para editar</span>
+      </div>
       <div className="card" style={{overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'120px 1fr 100px 60px 60px 80px 90px',...tableHeader}}>
-          <span>Código</span><span>Descripción</span><span>Material</span><span>Ciclo</span><span>Cav.</span><span>Activo</span><span></span>
+        <div style={{display:'grid',gridTemplateColumns:'120px 1fr 100px 60px 60px 80px 80px 90px',...tableHeader}}>
+          <span>Código</span><span>Descripción</span><span>Material</span><span>Ciclo</span><span>Cav.</span><span>Peso (g)</span><span>Activo</span><span></span>
         </div>
         {loading&&<div style={{padding:20,textAlign:'center',fontSize:12,color:'var(--text-muted)'}}>Cargando...</div>}
         {filtrados.map((p,i)=>(
           <div key={p.id} className="animate-fade-in-up" style={{
-            display:'grid',gridTemplateColumns:'120px 1fr 100px 60px 60px 80px 90px',
+            display:'grid',gridTemplateColumns:'120px 1fr 100px 60px 60px 80px 80px 90px',
             padding:'11px 16px',alignItems:'center',
             borderBottom:i<filtrados.length-1?'0.5px solid var(--border)':'none',
             animationDelay:`${i*0.02}s`,
@@ -334,6 +392,15 @@ function SeccionProductos() {
             <span style={{fontSize:11,color:'var(--text-muted)'}}>{p.material}</span>
             <span style={{fontSize:11,color:'var(--text-muted)'}}>{p.ciclos}s</span>
             <span style={{fontSize:11,color:'var(--text-muted)'}}>{p.cavidades}</span>
+            <button onClick={()=>setModalEditar(p)} style={{
+              background: p.peso_pieza != null ? 'rgba(99,153,34,0.1)' : 'var(--bg-secondary)',
+              border: `0.5px solid ${p.peso_pieza != null ? 'rgba(99,153,34,0.3)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 11, padding: '3px 6px',
+              color: p.peso_pieza != null ? '#639922' : 'var(--text-hint)',
+              fontWeight: p.peso_pieza != null ? 600 : 400,
+            }}>
+              {p.peso_pieza != null ? `${p.peso_pieza}g` : '—'}
+            </button>
             <Toggle activo={p.activo} onChange={()=>toggleActivo(p)} />
             <BtnEliminar onClick={()=>eliminar(p)} />
           </div>
@@ -359,27 +426,37 @@ function SeccionProductos() {
           </div>
         </Modal>
       )}
+      {modalEditar && (
+        <ModalEditarProducto
+          prod={modalEditar}
+          onClose={() => setModalEditar(null)}
+          onSave={(updated) => setLista(prev => prev.map(p => p.id === updated.id ? updated : p))}
+        />
+      )}
     </div>
   )
 }
 
+// ── CAMBIO 2: Causas sin "todos" — tabs por tipo con color y contador ─────────
 function SeccionCausas() {
-  // ── CAMBIO 1: agregado 'acondicionamiento' al tipo del estado ────────────────
   const [lista,      setLista]      = useState<CausaParada[]>([])
   const [busqueda,   setBusqueda]   = useState('')
-  const [tipoFiltro, setTipoFiltro] = useState<'todos'|'inyeccion'|'soplado'|'linea'|'acondicionamiento'>('todos')
+  const [tipoFiltro, setTipoFiltro] = useState<'inyeccion'|'soplado'|'linea'|'acondicionamiento'>('inyeccion')
   const [loading,    setLoading]    = useState(true)
   const [modal,      setModal]      = useState(false)
   const [guardando,  setGuardando]  = useState(false)
-  const [form,       setForm]       = useState({codigo:'',descripcion:'',tipo_maquina:'inyeccion',programada:false})
+  const [form,       setForm]       = useState({ codigo:'', descripcion:'', tipo_maquina:'inyeccion', programada:false })
 
   useEffect(() => {
-    fetch(`${API}/catalogos/causas-parada`).then(r=>r.json()).then(d=>{setLista(d);setLoading(false)}).catch(()=>setLoading(false))
+    fetch(`${API}/catalogos/causas-parada`)
+      .then(r=>r.json())
+      .then(d=>{setLista(d);setLoading(false)})
+      .catch(()=>setLoading(false))
   }, [])
 
   const filtrados = lista.filter(c =>
-    (tipoFiltro==='todos'||c.tipo_maquina===tipoFiltro) &&
-    (c.descripcion.toLowerCase().includes(busqueda.toLowerCase())||String(c.codigo).includes(busqueda))
+    c.tipo_maquina === tipoFiltro &&
+    (c.descripcion.toLowerCase().includes(busqueda.toLowerCase()) || String(c.codigo).includes(busqueda))
   )
 
   async function toggleActivo(c: CausaParada) {
@@ -398,58 +475,83 @@ function SeccionCausas() {
     setGuardando(true)
     const r = await fetch(`${API}/catalogos/causas-parada`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,codigo:Number(form.codigo),activa:true})})
     const nuevo = await r.json()
-    setLista(prev=>[...prev,nuevo]);setForm({codigo:'',descripcion:'',tipo_maquina:'inyeccion',programada:false});setModal(false);setGuardando(false)
+    setLista(prev=>[...prev,nuevo])
+    setForm({codigo:'',descripcion:'',tipo_maquina:'inyeccion',programada:false})
+    setModal(false); setGuardando(false)
   }
 
-  const filterBtn = (t: typeof tipoFiltro) => ({
-    fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
-    border: '0.5px solid' as const,
-    borderColor: tipoFiltro===t ? 'var(--text-primary)' : 'var(--border)',
-    background:  tipoFiltro===t ? 'var(--text-primary)' : 'var(--bg-primary)',
-    color:       tipoFiltro===t ? 'var(--bg-primary)'   : 'var(--text-muted)',
-    textTransform: 'capitalize' as const,
-  })
+  const TIPOS = [
+    { value: 'inyeccion',         label: 'Inyección',         color: '#378add' },
+    { value: 'soplado',           label: 'Soplado',           color: '#639922' },
+    { value: 'linea',             label: 'Línea',             color: '#ef9f27' },
+    { value: 'acondicionamiento', label: 'Acondicionamiento', color: '#1D9E75' },
+  ] as const
 
   return (
     <div>
-      <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
-        <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." style={{...searchInput,flex:1,minWidth:150}} />
-        {/* CAMBIO 2: agregado 'acondicionamiento' al array de filtros */}
-        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          {(['todos','inyeccion','soplado','linea','acondicionamiento'] as const).map(t=>(
-            <button key={t} onClick={()=>setTipoFiltro(t)} style={filterBtn(t)}>
-              {t === 'acondicionamiento' ? 'acond.' : t}
+      {/* Tabs por tipo — sin "todos" */}
+      <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap'}}>
+        {TIPOS.map(t => {
+          const conteo = lista.filter(c => c.tipo_maquina === t.value).length
+          const activo = tipoFiltro === t.value
+          return (
+            <button key={t.value} onClick={()=>setTipoFiltro(t.value)} style={{
+              padding:'7px 14px', borderRadius:'var(--radius-sm)', cursor:'pointer',
+              border:`0.5px solid ${activo ? t.color : 'var(--border)'}`,
+              background: activo ? t.color + '22' : 'var(--bg-primary)',
+              color: activo ? t.color : 'var(--text-muted)',
+              fontSize:12, fontWeight: activo ? 600 : 400,
+              display:'flex', alignItems:'center', gap:7,
+              transition:'all var(--transition)',
+            }}>
+              <div style={{width:7, height:7, borderRadius:'50%', background:t.color, opacity: activo ? 1 : 0.4}} />
+              {t.label}
+              <span style={{
+                fontSize:10, padding:'1px 6px', borderRadius:10,
+                background: activo ? t.color + '33' : 'var(--bg-tertiary)',
+                color: activo ? t.color : 'var(--text-hint)',
+              }}>{conteo}</span>
             </button>
-          ))}
-        </div>
+          )
+        })}
+      </div>
+
+      <div style={{display:'flex',gap:10,marginBottom:12,alignItems:'center'}}>
+        <input value={busqueda} onChange={e=>setBusqueda(e.target.value)}
+          placeholder={`Buscar en ${TIPOS.find(t=>t.value===tipoFiltro)?.label}...`}
+          style={searchInput} />
         <button onClick={()=>setModal(true)} style={btnPrimary}>+ Nueva causa</button>
       </div>
+
       <div className="card" style={{overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'55px 1fr 130px 110px 70px 90px',...tableHeader}}>
-          <span>Cod.</span><span>Descripción</span><span>Tipo</span><span>Parada</span><span>Activa</span><span></span>
+        <div style={{display:'grid',gridTemplateColumns:'55px 1fr 120px 70px 90px',...tableHeader}}>
+          <span>Cod.</span><span>Descripción</span><span>Parada</span><span>Activa</span><span></span>
         </div>
         {loading&&<div style={{padding:20,textAlign:'center',fontSize:12,color:'var(--text-muted)'}}>Cargando...</div>}
         {filtrados.map((c,i)=>(
           <div key={c.id} className="animate-fade-in-up" style={{
-            display:'grid',gridTemplateColumns:'55px 1fr 130px 110px 70px 90px',
+            display:'grid',gridTemplateColumns:'55px 1fr 120px 70px 90px',
             padding:'11px 16px',alignItems:'center',
             borderBottom:i<filtrados.length-1?'0.5px solid var(--border)':'none',
             animationDelay:`${i*0.02}s`,
           }}>
             <span style={{fontSize:12,fontWeight:600,color:'var(--text-muted)',fontFamily:'monospace'}}>{c.codigo}</span>
             <span style={{fontSize:12,color:'var(--text-primary)'}}>{c.descripcion}</span>
-            {/* CAMBIO 3: función badgeColorTipo para el color correcto por tipo */}
-            <Badge text={c.tipo_maquina} color={badgeColorTipo(c.tipo_maquina)} />
             <Badge text={c.programada?'Programada':'No programada'} color={c.programada?'gray':'red'} />
             <Toggle activo={c.activa} onChange={()=>toggleActivo(c)} />
             <BtnEliminar onClick={()=>eliminar(c)} />
           </div>
         ))}
-        {!loading&&filtrados.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:'var(--text-muted)'}}>Sin resultados</div>}
+        {!loading&&filtrados.length===0&&(
+          <div style={{padding:20,textAlign:'center',fontSize:12,color:'var(--text-muted)'}}>
+            Sin causas para {TIPOS.find(t=>t.value===tipoFiltro)?.label}
+          </div>
+        )}
       </div>
       <div style={{fontSize:11,color:'var(--text-muted)',marginTop:8,textAlign:'right'}}>
-        {filtrados.length} causas · {lista.filter(c=>c.activa).length} activas total
+        {filtrados.length} causas · {filtrados.filter(c=>c.activa).length} activas
       </div>
+
       {modal&&(
         <Modal title="Nueva causa de parada" onClose={()=>setModal(false)}>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -457,7 +559,6 @@ function SeccionCausas() {
               <Inp label="Código" type="number" value={form.codigo} onChange={v=>setForm(f=>({...f,codigo:v}))} placeholder="Ej: 41" />
               <div style={{display:'flex',flexDirection:'column',gap:4}}>
                 <label style={{fontSize:10,color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase'}}>Tipo máquina</label>
-                {/* CAMBIO 4: agregada opción Acondicionamiento en el select */}
                 <select value={form.tipo_maquina} onChange={e=>setForm(f=>({...f,tipo_maquina:e.target.value}))}
                   style={{padding:'7px 10px',fontSize:12,border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',color:'var(--text-primary)',background:'var(--bg-primary)'}}>
                   <option value="inyeccion">Inyección</option>
@@ -483,19 +584,19 @@ function SeccionCausas() {
 }
 
 function SeccionDesperdicios() {
-  const [lista,    setLista]    = useState<TiposDesperdicio[]>([])
-  const [busqueda, setBusqueda] = useState('')
-  const [loading,  setLoading]  = useState(true)
-  const [modal,    setModal]    = useState(false)
-  const [guardando,setGuardando]= useState(false)
-  const [form,     setForm]     = useState({codigo:'',descripcion:''})
+  const [lista,     setLista]     = useState<TiposDesperdicio[]>([])
+  const [busqueda,  setBusqueda]  = useState('')
+  const [loading,   setLoading]   = useState(true)
+  const [modal,     setModal]     = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [form,      setForm]      = useState({codigo:'',descripcion:''})
 
   useEffect(() => {
     fetch(`${API}/catalogos/tipos-desperdicio`).then(r=>r.json()).then(d=>{setLista(d);setLoading(false)}).catch(()=>setLoading(false))
   }, [])
 
   const filtrados = lista.filter(d =>
-    d.descripcion.toLowerCase().includes(busqueda.toLowerCase())||String(d.codigo).includes(busqueda)
+    d.descripcion.toLowerCase().includes(busqueda.toLowerCase()) || String(d.codigo).includes(busqueda)
   )
 
   async function toggleActivo(d: TiposDesperdicio) {
@@ -514,7 +615,7 @@ function SeccionDesperdicios() {
     setGuardando(true)
     const r = await fetch(`${API}/catalogos/tipos-desperdicio`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,codigo:Number(form.codigo),activa:true})})
     const nuevo = await r.json()
-    setLista(prev=>[...prev,nuevo]);setForm({codigo:'',descripcion:''});setModal(false);setGuardando(false)
+    setLista(prev=>[...prev,nuevo]); setForm({codigo:'',descripcion:''}); setModal(false); setGuardando(false)
   }
 
   return (
@@ -561,13 +662,12 @@ function SeccionDesperdicios() {
   )
 }
 
-// CAMBIO 5: contadores actualizados (176 causas, 41 tipos)
 const TABS: {id:Tab;label:string;desc:string}[] = [
   {id:'empleados',    label:'Empleados',        desc:'Operarios'},
   {id:'lideres',      label:'Líderes',          desc:'Supervisores'},
   {id:'productos',    label:'Productos',        desc:'122 referencias'},
-  {id:'causas',       label:'Causas de parada', desc:'176 causas'},
-  {id:'desperdicios', label:'Desperdicios',     desc:'41 tipos'},
+  {id:'causas',       label:'Causas de parada', desc:'Por tipo de máquina'},
+  {id:'desperdicios', label:'Desperdicios',     desc:'Tipos de defecto'},
 ]
 
 export default function CatalogosPage() {
